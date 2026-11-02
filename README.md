@@ -6,7 +6,7 @@ Course project for IKT213 - Smart Image Editor
 
 Smart Image Editor is a simple desktop application for basic image editing.
 
-The application is developed using Python and OpenCV.
+The application is developed using Python, OpenCV and CustomTkinter.
 
 ## Installation
 
@@ -28,21 +28,29 @@ Open the project folder in Visual Studio Code.
 
 Open a terminal and run:
 
-   py main.py
+   py test_gui.py
 
-The Smart Image Editor window will open.
+The updated Smart Image Editor window will open.
+
+To run the original version:
+
+   py main.py
 
 ## How to Use
 
-1. Click Open to select an image from your computer.
+1. Click Open Image to select an image from your computer.
 2. Click Grayscale to convert the image to grayscale.
 3. Click Rotate to rotate the image 90 degrees clockwise.
 4. Click Flip to flip the image horizontally.
-5. Click Save to save the edited image.
+5. Use Filters to apply different image filters.
+6. Adjust the blur or threshold settings if needed.
+7. Click Undo or Redo to undo or redo changes.
+8. Click Reset to return to the original image.
+9. Click Save Image to save the edited image.
 
 ## Features
 
-First Release currently includes:
+First Release includes:
 
 - Open image files
 - Save edited images
@@ -51,11 +59,24 @@ First Release currently includes:
 - Flip images horizontally
 - Display images inside the application
 
+The updated version also includes:
+
+- Gaussian Blur
+- Sobel Edge Detection
+- Binary Threshold
+- Otsu Threshold
+- Adjustable blur and threshold settings
+- Undo and Redo
+- Reset image
+- Modern dark user interface
+
 ## Requirements
 
 - Python 3.12 or newer
 - OpenCV
+- NumPy
 - Pillow
+- CustomTkinter
 
 ## Contributors
 
