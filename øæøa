@@ -1,0 +1,401 @@
+warning: in the working copy of 'features/filters.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'features/history.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'gui/main_window.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'gui/theme.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'main.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'test_filters.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'test_gui.py', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/gui/main_window.py b/gui/main_window.py[m
+[1mindex fd452e3..24dd0c6 100644[m
+[1m--- a/gui/main_window.py[m
+[1m+++ b/gui/main_window.py[m
+[36m@@ -1,6 +1,5 @@[m
+[31m-[m
+ import tkinter as tk[m
+[31m-from tkinter import filedialog, messagebox[m
+[32m+[m[32mfrom tkinter import filedialog, messagebox, colorchooser[m
+ from pathlib import Path[m
+ [m
+ import cv2[m
+[36m@@ -38,6 +37,10 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+         self.current_path = None[m
+         self.history = ImageHistory()[m
+         self.resize_job = None[m
+[32m+[m[32m        self.brush_enabled = False[m
+[32m+[m[32m        self.brush_color = "#E8E8EA"[m
+[32m+[m[32m        self.brush_size = tk.IntVar(value=8)[m
+[32m+[m[32m        self.last_brush_point = None[m
+ [m
+         self.grid_columnconfigure(0, minsize=205)[m
+         self.grid_columnconfigure(1, weight=1)[m
+[36m@@ -108,6 +111,9 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+         self.sidebar.grid_columnconfigure(0, weight=1)[m
+ [m
+         self.section("FILES")[m
+[32m+[m[32m        self.new_button = self.side_button([m
+[32m+[m[32m            "New image", self.new_image[m
+[32m+[m[32m        )[m
+         self.open_button = self.side_button([m
+             "Open image", self.open_image[m
+         )[m
+[36m@@ -126,6 +132,26 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+             "Grayscale", self.grayscale[m
+         )[m
+ [m
+[32m+[m[32m        self.section("PAINT")[m
+[32m+[m[32m        self.brush_button = self.side_button([m
+[32m+[m[32m            "Paint brush: OFF", self.toggle_brush[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.color_button = self.side_button([m
+[32m+[m[32m            "Choose brush color", self.choose_brush_color[m
+[32m+[m[32m        )[m
+[32m+[m[32m        ctk.CTkLabel([m
+[32m+[m[32m            self.sidebar, text="Brush size", text_color=TEXT,[m
+[32m+[m[32m            anchor="w"[m
+[32m+[m[32m        ).grid(row=self.sidebar.grid_size()[1], column=0,[m
+[32m+[m[32m               sticky="ew", padx=12, pady=(8, 0))[m
+[32m+[m[32m        self.brush_slider = ctk.CTkSlider([m
+[32m+[m[32m            self.sidebar, from_=1, to=50, number_of_steps=49,[m
+[32m+[m[32m            variable=self.brush_size, progress_color=ACCENT,[m
+[32m+[m[32m            button_color=ACCENT[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.brush_slider.grid(row=self.sidebar.grid_size()[1],[m
+[32m+[m[32m                               column=0, sticky="ew", padx=12, pady=8)[m
+[32m+[m
+         self.section("FILTERS")[m
+         self.blur_button = self.side_button([m
+             "Gaussian blur", self.apply_blur[m
+[36m@@ -252,6 +278,10 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+             "<Configure>", self.schedule_preview[m
+         )[m
+ [m
+[32m+[m[32m        self.canvas.bind("<ButtonPress-1>", self.start_brush)[m
+[32m+[m[32m        self.canvas.bind("<B1-Motion>", self.move_brush)[m
+[32m+[m[32m        self.canvas.bind("<ButtonRelease-1>", self.stop_brush)[m
+[32m+[m
+         self.status = ctk.CTkLabel([m
+             self.image_area,[m
+             text="No image opened",[m
+[36m@@ -270,6 +300,7 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+ [m
+         menus = {[m
+             "File": [[m
+[32m+[m[32m                ("New", self.new_image),[m
+                 ("Open", self.open_image),[m
+                 ("Save", self.save_image)[m
+             ],[m
+[36m@@ -306,6 +337,9 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+         master.configure(menu=menubar)[m
+ [m
+     def create_shortcuts(self, master):[m
+[32m+[m[32m        master.bind([m
+[32m+[m[32m            "<Control-n>", lambda event: self.new_image()[m
+[32m+[m[32m        )[m
+         master.bind([m
+             "<Control-o>", lambda event: self.open_image()[m
+         )[m
+[36m@@ -319,6 +353,82 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+             "<Control-y>", lambda event: self.redo()[m
+         )[m
+ [m
+[32m+[m[32m    def toggle_brush(self):[m
+[32m+[m[32m        self.brush_enabled = not self.brush_enabled[m
+[32m+[m[32m        self.brush_button.configure([m
+[32m+[m[32m            text="Paint brush: ON" if self.brush_enabled else "Paint brush: OFF"[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.canvas.configure(cursor="crosshair" if self.brush_enabled else "")[m
+[32m+[m
+[32m+[m[32m    def choose_brush_color(self):[m
+[32m+[m[32m        selected = colorchooser.askcolor(color=self.brush_color, parent=self)[m
+[32m+[m[32m        if selected[1]:[m
+[32m+[m[32m            self.brush_color = selected[1][m
+[32m+[m
+[32m+[m[32m    def canvas_to_image(self, x, y):[m
+[32m+[m[32m        if self.image is None:[m
+[32m+[m[32m            return None[m
+[32m+[m[32m        height, width = self.image.shape[:2][m
+[32m+[m[32m        canvas_width = self.canvas.winfo_width()[m
+[32m+[m[32m        canvas_height = self.canvas.winfo_height()[m
+[32m+[m[32m        if canvas_width <= 1 or canvas_height <= 1:[m
+[32m+[m[32m            return None[m
+[32m+[m[32m        scale = min((canvas_width - 40) / width,[m
+[32m+[m[32m                    (canvas_height - 40) / height, 1.0)[m
+[32m+[m[32m        if scale <= 0:[m
+[32m+[m[32m            return None[m
+[32m+[m[32m        shown_width = max(1, int(width * scale))[m
+[32m+[m[32m        shown_height = max(1, int(height * scale))[m
+[32m+[m[32m        left = canvas_width // 2 - shown_width // 2[m
+[32m+[m[32m        top = canvas_height // 2 - shown_height // 2[m
+[32m+[m[32m        if not (left <= x < left + shown_width and[m
+[32m+[m[32m                top <= y < top + shown_height):[m
+[32m+[m[32m            return None[m
+[32m+[m[32m        image_x = min(width - 1, int((x - left) * width / shown_width))[m
+[32m+[m[32m        image_y = min(height - 1, int((y - top) * height / shown_height))[m
+[32m+[m[32m        return image_x, image_y[m
+[32m+[m
+[32m+[m[32m    def brush_bgr(self):[m
+[32m+[m[32m        color = self.brush_color.lstrip("#")[m
+[32m+[m[32m        red, green, blue = (int(color[i:i + 2], 16) for i in (0, 2, 4))[m
+[32m+[m[32m        return blue, green, red[m
+[32m+[m
+[32m+[m[32m    def start_brush(self, event):[m
+[32m+[m[32m        if not self.brush_enabled or self.image is None:[m
+[32m+[m[32m            return[m
+[32m+[m[32m        point = self.canvas_to_image(event.x, event.y)[m
+[32m+[m[32m        if point is None:[m
+[32m+[m[32m            return[m
+[32m+[m[32m        self.history.save_state(self.image)[m
+[32m+[m[32m        self.last_brush_point = point[m
+[32m+[m[32m        cv2.circle(self.image, point, max(1, self.brush_size.get() // 2),[m
+[32m+[m[32m                   self.brush_bgr(), -1, lineType=cv2.LINE_AA)[m
+[32m+[m[32m        self.show_image()[m
+[32m+[m
+[32m+[m[32m    def move_brush(self, event):[m
+[32m+[m[32m        if self.last_brush_point is None or self.image is None:[m
+[32m+[m[32m            return[m
+[32m+[m[32m        point = self.canvas_to_image(event.x, event.y)[m
+[32m+[m[32m        if point is None:[m
+[32m+[m[32m            self.last_brush_point = None[m
+[32m+[m[32m            return[m
+[32m+[m[32m        cv2.line(self.image, self.last_brush_point, point,[m
+[32m+[m[32m                 self.brush_bgr(), max(1, self.brush_size.get()),[m
+[32m+[m[32m                 lineType=cv2.LINE_AA)[m
+[32m+[m[32m        self.last_brush_point = point[m
+[32m+[m[32m        self.show_image()[m
+[32m+[m
+[32m+[m[32m    def stop_brush(self, event=None):[m
+[32m+[m[32m        self.last_brush_point = None[m
+[32m+[m
+[32m+[m[32m    def new_image(self):[m
+[32m+[m[32m        self.image = np.full((600, 800, 3), 255, dtype=np.uint8)[m
+[32m+[m[32m        self.original_image = self.image.copy()[m
+[32m+[m[32m        self.current_path = None[m
+[32m+[m[32m        self.history.clear()[m
+[32m+[m[32m        self.last_brush_point = None[m
+[32m+[m[32m        self.show_image()[m
+[32m+[m
+     def open_image(self):[m
+         path = filedialog.askopenfilename([m
+             filetypes=[[m
+[36m@@ -352,6 +462,7 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+         self.original_image = image.copy()[m
+         self.current_path = path[m
+         self.history.clear()[m
+[32m+[m[32m        self.last_brush_point = None[m
+         self.show_image()[m
+ [m
+     def save_image(self):[m
+[36m@@ -606,7 +717,9 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+             self.sobel_button,[m
+             self.binary_button,[m
+             self.otsu_button,[m
+[31m-            self.reset_button[m
+[32m+[m[32m            self.reset_button,[m
+[32m+[m[32m            self.brush_button,[m
+[32m+[m[32m            self.color_button[m
+         ][m
+ [m
+         for button in buttons:[m
+[36m@@ -624,4 +737,4 @@[m [mclass MainWindow(ctk.CTkFrame):[m
+             state="normal"[m
+             if loaded and self.history.redo_stack[m
+             else "disabled"[m
+[31m-        )[m
+[32m+[m[32m        )[m
+\ No newline at end of file[m
+[1mdiff --git a/gui/theme.py b/gui/theme.py[m
+[1mindex c52e821..b8d83a4 100644[m
+[1m--- a/gui/theme.py[m
+[1m+++ b/gui/theme.py[m
+[36m@@ -1,13 +1,6 @@[m
+ import customtkinter as ctk[m
+ [m
+[31m-# Main application appearance settings[m
+ ctk.set_appearance_mode("dark")[m
+ ctk.set_default_color_theme("blue")[m
+ [m
+[31m-# Application colors[m
+[31m-BACKGROUND = "#181A20"[m
+[31m-SIDEBAR = "#22252E"[m
+[31m-TOOLBAR = "#292D38"[m
+[31m-ACCENT = "#6488F5"[m
+[31m-TEXT = "#FFFFFF"[m
+[31m-TEXT_SECONDARY = "#AAB0BF"[m
+\ No newline at end of file[m
+[32m+[m[32mBACKGROUND = "#18191C"[m
+\ No newline at end of file[m
+[1mdiff --git a/main.py b/main.py[m
+[1mindex d41ef17..2759cc1 100644[m
+[1m--- a/main.py[m
+[1m+++ b/main.py[m
+[36m@@ -1,227 +1,13 @@[m
+[31m-import cv2[m
+[31m-import tkinter as tk[m
+[31m-from tkinter import filedialog[m
+[31m-from PIL import Image, ImageTk[m
+[31m-from features.history import ImageHistory[m
+[32m+[m[32mimport customtkinter as ctk[m
+[32m+[m[32mfrom gui.main_window import MainWindow[m
+ [m
+[31m-from features.filters import ([m
+[31m-    gaussian_blur,[m
+[31m-    sobel_edge_detection,[m
+[31m-    binary_threshold,[m
+[31m-    otsu_threshold[m
+[31m-)[m
+ [m
+[31m-class ImageEditor:[m
+[31m-    def __init__(self, root):[m
+[31m-        self.root = root[m
+[31m-        self.root.title("Smart Image Editor")[m
+[31m-        self.root.geometry("900x650")[m
+[32m+[m[32mif __name__ == "__main__":[m
+[32m+[m[32m    root = ctk.CTk()[m
+[32m+[m[32m    root.title("Smart Image Editor")[m
+[32m+[m[32m    root.geometry("1180x760")[m
+[32m+[m[32m    root.minsize(850, 550)[m
+ [m
+[31m-        self.image = None[m
+[31m-        self.display_image = None[m
+[31m-        self.history = ImageHistory()[m
+[31m-        self.original_image = None[m
+[32m+[m[32m    MainWindow(root)[m
+ [m
+[31m-        self.root.bind("<Control-z>", lambda event: self.undo())[m
+[31m-        self.root.bind("<Control-y>", lambda event: self.redo())[m
+[31m-[m
+[31m-        self.create_buttons()[m
+[31m-[m
+[31m-        self.create_filter_menu()[m
+[31m-        self.image_label = tk.Label(root)[m
+[31m-        self.image_label.pack(pady=20)[m
+[31m-[m
+[31m-    def create_buttons(self):[m
+[31m-        frame = tk.Frame(self.root)[m
+[31m-        frame.pack(pady=10)[m
+[31m-[m
+[31m-        tk.Button(frame, text="Undo", command=self.undo).pack(side="left", padx=5)[m
+[31m-        tk.Button(frame, text="Redo", command=self.redo).pack(side="left", padx=5)[m
+[31m-        tk.Button(frame, text="Reset", command=self.reset_image).pack(side="left", padx=5)[m
+[31m-    [m
+[31m-    def create_filter_menu(self):[m
+[31m-        menubar = tk.Menu(self.root)[m
+[31m-        file_menu = tk.Menu(menubar, tearoff=0)[m
+[31m-[m
+[31m-        file_menu.add_command([m
+[31m-            label="Open",[m
+[31m-            command=self.open_image[m
+[31m-        )[m
+[31m-[m
+[31m-        file_menu.add_command([m
+[31m-            label="Save",[m
+[31m-            command=self.save_image[m
+[31m-        )[m
+[31m-[m
+[31m-        menubar.add_cascade(label="File", menu=file_menu)[m
+[31m-        image_menu = tk.Menu(menubar, tearoff=0)[m
+[31m-[m
+[31m-        image_menu.add_command([m
+[31m-            label="Rotate 90°",[m
+[31m-            command=self.rotate_image[m
+[31m-        )[m
+[31m-[m
+[31m-        image_menu.add_command([m
+[31m-            label="Flip Horizontal",[m
+[31m-            command=self.flip_image[m
+[31m-        )[m
+[31m-[m
+[31m-        menubar.add_cascade(label="Image", menu=image_menu)[m
+[31m-        filters_menu = tk.Menu(menubar, tearoff=0)[m
+[31m-[m
+[31m-        filters_menu.add_command([m
+[31m-            label="Grayscale",[m
+[31m-            command=self.grayscale[m
+[31m-        )[m
+[31m-        filters_menu.add_command([m
+[31m-            label="Blur (Gaussian)",[m
+[31m-            command=lambda: self.apply_filter(gaussian_blur)[m
+[31m-        )[m
+[31m-        filters_menu.add_command([m
+[31m-            label="Edge Detection (Sobel)",[m
+[31m-            command=lambda: self.apply_filter(sobel_edge_detection)[m
+[31m-        )[m
+[31m-        filters_menu.add_command([m
+[31m-            label="Black and White (Threshold)",[m
+[31m-            command=lambda: self.apply_filter(binary_threshold)[m
+[31m-        )[m
+[31m-        filters_menu.add_command([m
+[31m-            label="Auto Threshold (Otsu)",[m
+[31m-            command=lambda: self.apply_filter(otsu_threshold)[m
+[31m-        )[m
+[31m-[m
+[31m-        menubar.add_cascade(label="Filters", menu=filters_menu)[m
+[31m-        self.root.config(menu=menubar)[m
+[31m-[m
+[31m-    def apply_filter(self, filter_function):[m
+[31m-        if self.image is None:[m
+[31m-            return[m
+[31m-[m
+[31m-        result = filter_function(self.image)[m
+[31m-[m
+[31m-        if result.ndim == 2:[m
+[31m-            result = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)[m
+[31m-[m
+[31m-        self.history.save_state(self.image)[m
+[31m-        self.image = result[m
+[31m-        [m
+[31m-        self.show_image()[m
+[31m-[m
+[31m-    def open_image(self):[m
+[31m-        file_path = filedialog.askopenfilename([m
+[31m-            filetypes=[[m
+[31m-                ("Image files", "*.jpg *.jpeg *.png *.bmp")[m
+[31m-            ][m
+[31m-        )[m
+[31m-[m
+[31m-        if file_path:[m
+[31m-            self.image = cv2.imread(file_path)[m
+[31m-[m
+[31m-            if self.image is not None:[m
+[31m-                self.original_image = self.image.copy()[m
+[31m-                self.history.clear()[m
+[31m-[m
+[31m-            self.show_image()[m
+[31m-[m
+[31m-    def show_image(self):[m
+[31m-        if self.image is None:[m
+[31m-            return[m
+[31m-[m
+[31m-        image_rgb = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)[m
+[31m-[m
+[31m-        height, width = image_rgb.shape[:2][m
+[31m-[m
+[31m-        if width > 750 or height > 500:[m
+[31m-            scale = min(750 / width, 500 / height)[m
+[31m-            new_width = int(width * scale)[m
+[31m-            new_height = int(height * scale)[m
+[31m-[m
+[31m-            image_rgb = cv2.resize([m
+[31m-                image_rgb,[m
+[31m-                (new_width, new_height)[m
+[31m-            )[m
+[31m-[m
+[31m-        image_pil = Image.fromarray(image_rgb)[m
+[31m-        self.display_image = ImageTk.PhotoImage(image_pil)[m
+[31m-[m
+[31m-        self.image_label.config(image=self.display_image)[m
+[31m-[m
+[31m-    def save_image(self):[m
+[31m-        if self.image is None:[m
+[31m-            return[m
+[31m-[m
+[31m-        file_path = filedialog.asksaveasfilename([m
+[31m-            defaultextension=".png",[m
+[31m-            filetypes=[[m
+[31m-                ("PNG", "*.png"),[m
+[31m-                ("JPEG", "*.jpg")[m
+[31m-            ][m
+[31m-        )[m
+[31m-[m
+[31m-        if file_path:[m
+[31m-            cv2.imwrite(file_path, self.image)[

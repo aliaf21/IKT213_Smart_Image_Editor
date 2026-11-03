@@ -1,6 +1,5 @@
-
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, colorchooser
 from pathlib import Path
 
 import cv2
@@ -38,6 +37,10 @@ class MainWindow(ctk.CTkFrame):
         self.current_path = None
         self.history = ImageHistory()
         self.resize_job = None
+        self.brush_enabled = False
+        self.brush_color = "#E8E8EA"
+        self.brush_size = tk.IntVar(value=8)
+        self.last_brush_point = None
 
         self.grid_columnconfigure(0, minsize=205)
         self.grid_columnconfigure(1, weight=1)
@@ -108,6 +111,9 @@ class MainWindow(ctk.CTkFrame):
         self.sidebar.grid_columnconfigure(0, weight=1)
 
         self.section("FILES")
+        self.new_button = self.side_button(
+            "New image", self.new_image
+        )
         self.open_button = self.side_button(
             "Open image", self.open_image
         )
@@ -125,6 +131,26 @@ class MainWindow(ctk.CTkFrame):
         self.gray_button = self.side_button(
             "Grayscale", self.grayscale
         )
+
+        self.section("PAINT")
+        self.brush_button = self.side_button(
+            "Paint brush: OFF", self.toggle_brush
+        )
+        self.color_button = self.side_button(
+            "Choose brush color", self.choose_brush_color
+        )
+        ctk.CTkLabel(
+            self.sidebar, text="Brush size", text_color=TEXT,
+            anchor="w"
+        ).grid(row=self.sidebar.grid_size()[1], column=0,
+               sticky="ew", padx=12, pady=(8, 0))
+        self.brush_slider = ctk.CTkSlider(
+            self.sidebar, from_=1, to=50, number_of_steps=49,
+            variable=self.brush_size, progress_color=ACCENT,
+            button_color=ACCENT
+        )
+        self.brush_slider.grid(row=self.sidebar.grid_size()[1],
+                               column=0, sticky="ew", padx=12, pady=8)
 
         self.section("FILTERS")
         self.blur_button = self.side_button(
@@ -252,6 +278,10 @@ class MainWindow(ctk.CTkFrame):
             "<Configure>", self.schedule_preview
         )
 
+        self.canvas.bind("<ButtonPress-1>", self.start_brush)
+        self.canvas.bind("<B1-Motion>", self.move_brush)
+        self.canvas.bind("<ButtonRelease-1>", self.stop_brush)
+
         self.status = ctk.CTkLabel(
             self.image_area,
             text="No image opened",
@@ -270,6 +300,7 @@ class MainWindow(ctk.CTkFrame):
 
         menus = {
             "File": [
+                ("New", self.new_image),
                 ("Open", self.open_image),
                 ("Save", self.save_image)
             ],
@@ -307,6 +338,9 @@ class MainWindow(ctk.CTkFrame):
 
     def create_shortcuts(self, master):
         master.bind(
+            "<Control-n>", lambda event: self.new_image()
+        )
+        master.bind(
             "<Control-o>", lambda event: self.open_image()
         )
         master.bind(
@@ -318,6 +352,82 @@ class MainWindow(ctk.CTkFrame):
         master.bind(
             "<Control-y>", lambda event: self.redo()
         )
+
+    def toggle_brush(self):
+        self.brush_enabled = not self.brush_enabled
+        self.brush_button.configure(
+            text="Paint brush: ON" if self.brush_enabled else "Paint brush: OFF"
+        )
+        self.canvas.configure(cursor="crosshair" if self.brush_enabled else "")
+
+    def choose_brush_color(self):
+        selected = colorchooser.askcolor(color=self.brush_color, parent=self)
+        if selected[1]:
+            self.brush_color = selected[1]
+
+    def canvas_to_image(self, x, y):
+        if self.image is None:
+            return None
+        height, width = self.image.shape[:2]
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        if canvas_width <= 1 or canvas_height <= 1:
+            return None
+        scale = min((canvas_width - 40) / width,
+                    (canvas_height - 40) / height, 1.0)
+        if scale <= 0:
+            return None
+        shown_width = max(1, int(width * scale))
+        shown_height = max(1, int(height * scale))
+        left = canvas_width // 2 - shown_width // 2
+        top = canvas_height // 2 - shown_height // 2
+        if not (left <= x < left + shown_width and
+                top <= y < top + shown_height):
+            return None
+        image_x = min(width - 1, int((x - left) * width / shown_width))
+        image_y = min(height - 1, int((y - top) * height / shown_height))
+        return image_x, image_y
+
+    def brush_bgr(self):
+        color = self.brush_color.lstrip("#")
+        red, green, blue = (int(color[i:i + 2], 16) for i in (0, 2, 4))
+        return blue, green, red
+
+    def start_brush(self, event):
+        if not self.brush_enabled or self.image is None:
+            return
+        point = self.canvas_to_image(event.x, event.y)
+        if point is None:
+            return
+        self.history.save_state(self.image)
+        self.last_brush_point = point
+        cv2.circle(self.image, point, max(1, self.brush_size.get() // 2),
+                   self.brush_bgr(), -1, lineType=cv2.LINE_AA)
+        self.show_image()
+
+    def move_brush(self, event):
+        if self.last_brush_point is None or self.image is None:
+            return
+        point = self.canvas_to_image(event.x, event.y)
+        if point is None:
+            self.last_brush_point = None
+            return
+        cv2.line(self.image, self.last_brush_point, point,
+                 self.brush_bgr(), max(1, self.brush_size.get()),
+                 lineType=cv2.LINE_AA)
+        self.last_brush_point = point
+        self.show_image()
+
+    def stop_brush(self, event=None):
+        self.last_brush_point = None
+
+    def new_image(self):
+        self.image = np.full((600, 800, 3), 255, dtype=np.uint8)
+        self.original_image = self.image.copy()
+        self.current_path = None
+        self.history.clear()
+        self.last_brush_point = None
+        self.show_image()
 
     def open_image(self):
         path = filedialog.askopenfilename(
@@ -352,6 +462,7 @@ class MainWindow(ctk.CTkFrame):
         self.original_image = image.copy()
         self.current_path = path
         self.history.clear()
+        self.last_brush_point = None
         self.show_image()
 
     def save_image(self):
@@ -606,7 +717,9 @@ class MainWindow(ctk.CTkFrame):
             self.sobel_button,
             self.binary_button,
             self.otsu_button,
-            self.reset_button
+            self.reset_button,
+            self.brush_button,
+            self.color_button
         ]
 
         for button in buttons:
